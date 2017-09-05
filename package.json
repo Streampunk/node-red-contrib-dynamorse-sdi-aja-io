@@ -21,15 +21,16 @@
   },
   "node-red": {
     "nodes": {
-      "sdi-aja-out": "nodes/50-sdi-out.js"
+      "sdi-aja-out": "nodes/50-sdi-out.js",
+      "sdi-aja-in": "nodes/50-sdi-in.js"
     }
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Streampunk/node-red-contrib-dynamorse-sdi-io.git"
+    "url": "git+https://github.com/Streampunk/node-red-contrib-dynamorse-sdi-aja-io.git"
   },
   "bugs": {
-    "url": "https://github.com/Streampunk/node-red-contrib-dynamorse-sdi-io/issues"
+    "url": "https://github.com/Streampunk/node-red-contrib-dynamorse-sdi-aja-io/issues"
   },
-  "homepage": "https://github.com/Streampunk/node-red-contrib-dynamorse-sdi-io#readme"
+  "homepage": "https://github.com/Streampunk/node-red-contrib-dynamorse-sdi-aja-io#readme"
 }

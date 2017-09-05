@@ -38,16 +38,13 @@ module.exports = function (RED, sdiOutput, nodeName) {
     var begin = null;
     var playState = BMDOutputFrameCompleted;
     var producingEnough = true;
+    var frameCount = 0;
 
     this.each((x, next) => {
       if (!Grain.isGrain(x)) {
         node.warn('Received non-Grain payload: ' + JSON.stringify(x));
-
-        if(x.TobyStamp != undefined) node.log('TobyStamp: ' + JSON.stringify(x.TobyStamp));
         return next();
       }
-      //node.warn('Not doing Grain check!!!!');
-
 
       var nextJob = (node.srcFlow) ?
         Promise.resolve(x) :
@@ -187,7 +184,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
           playback = new sdiOutput.Playback(config.deviceIndex,
             bmMode, bmFormat);
           playback.on('error', e => {
-            node.warn(`Received playback error from Blackmagic card: ${e}`);
+            node.warn(`Received playback error from Aja card: ${e}`);
             next();
           });
 
@@ -195,6 +192,8 @@ module.exports = function (RED, sdiOutput, nodeName) {
           return x;
         });
       nextJob.then(g => {
+          node.log('Received Frame number: ' + ++frameCount);
+
         playback.frame(g.buffers[0]);
         sentCount++;
         if (sentCount === +config.frameCache) {
