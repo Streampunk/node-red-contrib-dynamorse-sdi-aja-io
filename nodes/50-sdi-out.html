@@ -48,6 +48,8 @@
   <div class="form-row">
     <label for="node-input-timeout"><i class="fa fa-clock-o"></i> timeout</label>
     <input type="number" min="0" id="node-input-timeout" placeholder="40" style="width: 100px">
+    <label for="node-input-channel" style="text-align: right; width: 80px"><i class="fa fa-list" aria-hidden="true"></i> index</label>
+    <input type="number" id="node-input-channel" min="0" max="30" placeholder="3" style="width: 100px">
   </div>
 </script>
 
@@ -91,19 +93,23 @@
    </tr>
    <tr>
     <td><i class="fa fa-list" aria-hidden="true"></i> index</td>
-    <td>Index of the Blackmagic card according to the SDK.</td>
+    <td>Index of the Aja card according to the SDK.</td>
    </tr>
    <tr>
     <td><i class="fa fa-clock-o"></i> timeout</td>
     <td>Time to wait between writing each grain. Controls the back-pressure.</td>
    </tr>
+    <tr>
+     <td><i class="fa fa-list" aria-hidden="true"></i> channel</td>
+     <td>Channel number of the Aja card to use for output.</td>
+    </tr>
   </table>
   </div>
 
   <h3>Maturity</h3>
-  <p>The <a href="https://www.npmjs.com/package/macadam">macadam</a> library is
+  <p>The <a href="https://www.npmjs.com/package/macadam">Ajatation</a> library is
   implemented with support for streaming frames of video from Node.js buffers to
-  Backmagic hardware. The work to integrate this library into dynamorse is
+  Aja hardware. The work to integrate this library into dynamorse is
   underway -
   <a href="https://github.com/Streampunk/dynamorse/issues/12">status</a>.</p>
 
