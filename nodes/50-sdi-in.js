@@ -71,7 +71,7 @@ module.exports = function (RED) {
       node.warn);
 
     this.eventMuncher(capture, 'frame', payload => {
-      node.log('Received Frame number: ' + ++frameCount);
+      //node.log('Received Frame number: ' + ++frameCount);
 
       var grainTime = Buffer.allocUnsafe(10);
       grainTime.writeUIntBE(this.baseTime[0], 0, 6);

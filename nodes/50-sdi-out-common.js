@@ -85,7 +85,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                     sdiOutput.bmdMode4K2160p5994 : sdiOutput.bmdMode4k2160p60;
                   break;
                 default:
-                  node.preFlightError('Could not establish Blackmagic mode.');
+                  node.preFlightError('Could not establish device mode.');
                   break;
               }
               break;
@@ -125,7 +125,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                     sdiOutput.bmdModeHD1080p5994 : sdiOutput.bmdModeHD1080p6000;
                   break;
                 default:
-                  node.preFlightError('Could not establish Blackmagic mode.');
+                  node.preFlightError('Could not establish device mode.');
                   break;
               }
               break;
@@ -141,7 +141,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                     sdiOutput.bmdModeHD720p5994 : sdiOutput.bmdModeHD720p60;
                   break;
                 default:
-                  node.preFlightError('Could not establish Blackmagic mode.');
+                  node.preFlightError('Could not establish device mode.');
                   break;
               }
               break;
@@ -156,7 +156,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                   bmdMode = bmcModePALp;
                   break;
                 default:
-                  node.preFlightError('Could not establish Blackmagic mode.');
+                  node.preFlightError('Could not establish device mode.');
                   break;
               }
               break;
@@ -171,12 +171,12 @@ module.exports = function (RED, sdiOutput, nodeName) {
                   bmdMode = bmdModeNTSCp;
                   break;
                 default:
-                  node.preFlightError('Could not establish Blackmagic mode.');
+                  node.preFlightError('Could not establish device mode.');
                   break;
               }
               break;
             default:
-              node.preFlightError('Could not establish Blackmagic mode.');
+                node.preFlightError('Could not establish device mode.');
               break;
           }
           if (f.tags.packing && f.tags.packing.length >= 1)
@@ -192,7 +192,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
           return x;
         });
       nextJob.then(g => {
-          node.log('Received Frame number: ' + ++frameCount);
+          //node.log('Received Frame number: ' + ++frameCount);
 
         playback.frame(g.buffers[0]);
         sentCount++;
