@@ -90,7 +90,6 @@ module.exports = function (RED, sdiOutput, nodeName) {
               }
               break;
             case 1080:
-              console.log("!!!!!! Checking 1080 res timings, duration = " + x.getDuration()[0] + '/'+ x.getDuration()[1]);
               switch (x.getDuration()[1]) {
                 case 25:
                 case 25000:
@@ -122,10 +121,8 @@ module.exports = function (RED, sdiOutput, nodeName) {
                   break;
                 case 60:
                 case 60000:
-                  console.log("!!!!!! Duration numerator = " + x.getDuration()[0]);
                   bmMode = (x.getDuration()[0] === 1001) ?
                     sdiOutput.bmdModeHD1080p5994 : sdiOutput.bmdModeHD1080p6000;
-                  console.log("!!!!!! bmMode = " + bmMode);
                   break;
                 default:
                   node.preFlightError('Could not establish device mode.');
