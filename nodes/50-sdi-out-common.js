@@ -15,7 +15,6 @@
 
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
-var Promise = require('promise');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 
 const BMDOutputFrameCompleted = 0;
@@ -38,7 +37,6 @@ module.exports = function (RED, sdiOutput, nodeName) {
     var begin = null;
     var playState = BMDOutputFrameCompleted;
     var producingEnough = true;
-    var frameCount = 0;
 
     this.each((x, next) => {
       if (!Grain.isGrain(x)) {
@@ -48,17 +46,20 @@ module.exports = function (RED, sdiOutput, nodeName) {
 
       var nextJob = (node.srcFlow) ?
         Promise.resolve(x) :
-        (Promise.denodeify(node.getNMOSFlow, 1))(x)
-        .then(f => {
+        this.findCable(x)
+        .then(c => {
+          console.log(JSON.stringify(c));
+          console.log(JSON.stringify(f));
+          var f = c[0].video[0];
           node.srcFlow = f;
-          if (f.tags.format[0] !== 'video') {
+          if (f.tags.format !== 'video') {
             return node.preFlightError('Only video sources supported for SDI out.');
           }
           // Set defaults to the most commonly format for dynamorse testing
           // TODO: support for DCI modes
           var bmMode = sdiOutput.bmdModeHD1080i50;
           var bmFormat = sdiOutput.bmdFormat10BitYUV;
-          switch (+f.tags.height[0]) {
+          switch (f.tags.height) {
             case 2160:
               switch (x.getDuration()[1]) {
                 case 25:
@@ -85,7 +86,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                     sdiOutput.bmdMode4K2160p5994 : sdiOutput.bmdMode4k2160p60;
                   break;
                 default:
-                  node.preFlightError('Could not establish device mode.');
+                  node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
                   break;
               }
               break;
@@ -93,13 +94,13 @@ module.exports = function (RED, sdiOutput, nodeName) {
               switch (x.getDuration()[1]) {
                 case 25:
                 case 25000:
-                  bmMode = (f.tags.interlace[0] === '1') ?
+                  bmMode = (f.tags.interlace === true) ?
                     sdiOutput.bmdModeHD1080i50 : sdiOutput.bmdModeHD1080p25;
                     break;
                 case 24:
                 case 24000:
                   if (x.getDuration()[0] === 1001) {
-                    bmMode = (f.tags.interlace[0] === '1') ?
+                    bmMode = (f.tags.interlace === true) ?
                       sdiOutput.bmdModeHD1080i5994 : sdiOutput.bmdModeHD1080p2398;
                   } else {
                     bmMode = sdiOutput.bmdModeHD1080p24;
@@ -108,10 +109,10 @@ module.exports = function (RED, sdiOutput, nodeName) {
                 case 30:
                 case 30000:
                   if (x.getDuration()[0] === 1001) {
-                    bmMode = (f.tags.interlace[0] === '1') ?
+                    bmMode = (f.tags.interlace === true) ?
                       sdiOutput.bmdModeHD1080i5994 : sdiOutput.bmdModeHD1080p2997;
                   } else {
-                    bmMode = (f.tags.interlace[0] === '1') ?
+                    bmMode = (f.tags.interlace === true) ?
                       sdiOutput.bmdModeHD1080i6000 : sdiOutput.bmdModeHD1080p30;
                   }
                   break;
@@ -125,7 +126,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                     sdiOutput.bmdModeHD1080p5994 : sdiOutput.bmdModeHD1080p6000;
                   break;
                 default:
-                  node.preFlightError('Could not establish device mode.');
+                  node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
                   break;
               }
               break;
@@ -141,7 +142,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                     sdiOutput.bmdModeHD720p5994 : sdiOutput.bmdModeHD720p60;
                   break;
                 default:
-                  node.preFlightError('Could not establish device mode.');
+                  node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
                   break;
               }
               break;
@@ -156,7 +157,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                   bmMode = bmcModePALp;
                   break;
                 default:
-                  node.preFlightError('Could not establish device mode.');
+                  node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
                   break;
               }
               break;
@@ -171,19 +172,17 @@ module.exports = function (RED, sdiOutput, nodeName) {
                   bmMode = bmdModeNTSCp;
                   break;
                 default:
-                  node.preFlightError('Could not establish device mode.');
+                  node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
                   break;
               }
               break;
             default:
-                node.preFlightError('Could not establish device mode.');
+              node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
               break;
           }
-          if (f.tags.packing && f.tags.packing.length >= 1)
+          if (f.tags.packing)
           {
-            var newFormat = sdiOutput.fourCCFormat(f.tags.packing[0]);
-            this.warn("NOTE: Aja Output Switching pixel format from " + sdiOutput.intToBMCode(bmFormat) + " to " + sdiOutput.intToBMCode(newFormat));
-            bmFormat = sdiOutput.fourCCFormat(f.tags.packing[0]);
+            bmFormat = sdiOutput.fourCCFormat(f.tags.packing);
           }
           this.log("NOTE: Initializing Aja Output to Display Mode " + sdiOutput.intToBMCode(bmMode));
           playback = new sdiOutput.Playback(config.deviceIndex,
@@ -197,8 +196,6 @@ module.exports = function (RED, sdiOutput, nodeName) {
           return x;
         });
       nextJob.then(g => {
-          //node.log('Received Frame number: ' + ++frameCount);
-
         playback.frame(g.buffers[0]);
         sentCount++;
         if (sentCount === +config.frameCache) {
@@ -282,6 +279,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
     });
     process.on('SIGINT', () => {
       if (playback) playback.stop();
+      process.exit();
     });
   }
   util.inherits(SDIOut, redioactive.Spout);
