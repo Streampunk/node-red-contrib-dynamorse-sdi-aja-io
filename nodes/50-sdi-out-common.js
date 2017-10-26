@@ -23,6 +23,7 @@ const BMDOutputFrameDisplayedLate = 1;
 const BMDOutputFrameDropped = 2;
 const BMDOutputFrameFlushed = 3;
 
+const OPTIMUM_BUFFER_SIZE = 5;
 
 module.exports = function (RED, sdiOutput, nodeName) {
 
@@ -62,6 +63,10 @@ module.exports = function (RED, sdiOutput, nodeName) {
           // TODO: support for DCI modes
           var bmMode = sdiOutput.bmdModeHD1080i50;
           var bmFormat = sdiOutput.bmdFormat10BitYUV;
+
+          frameDurationMs = (x.getDuration()[0] * 1000) / x.getDuration()[1]
+          node.log('Current frame duration in milliseconds = ' + frameDurationMs);
+
           switch (f.tags.height) {
             case 2160:
               switch (x.getDuration()[1]) {
@@ -212,7 +217,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
 
         //console.log("** Vid Processing ******************************");
 
-        playback.frame(g.buffers[0]);
+        var usedBuffers = playback.frame(g.buffers[0]);
         sentCount++;
         if (sentCount === +config.frameCache) {
           this.log('Starting playback.');
@@ -241,12 +246,19 @@ module.exports = function (RED, sdiOutput, nodeName) {
             }
           });
         }
-        var diffTime = process.hrtime(begin);
-        var diff = (sentCount * config.timeout) -
-            (diffTime[0] * 1000 + diffTime[1] / 1000000|0);
 
-        this.log("********* diff = " + diff);
+        var diff = 0;
+        //var diffTime = process.hrtime(begin);
+        //var diff = (sentCount * config.timeout) -
+        //    (diffTime[0] * 1000 + diffTime[1] / 1000000|0);
 
+        if(usedBuffers > OPTIMUM_BUFFER_SIZE) // 5 currently arbitrary number, make this tuneable
+        {
+          diff = (usedBuffers - OPTIMUM_BUFFER_SIZE) * frameDurationMs;
+        }
+
+        this.log("** UsedBuffer = " + usedBuffers + "; delay = " + diff);
+        
         if ((diff < 0) && (producingEnough === true)) {
           this.warn(`After sending ${sentCount} frames and playing ${playedCount}, not producing frames fast enough for SDI output.`);
           producingEnough = false;
