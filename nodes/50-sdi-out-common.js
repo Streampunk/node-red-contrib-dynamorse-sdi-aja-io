@@ -16,6 +16,7 @@
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
+var uuid = require('uuid');
 
 const BMDOutputFrameCompleted = 0;
 const BMDOutputFrameDisplayedLate = 1;
@@ -37,6 +38,8 @@ module.exports = function (RED, sdiOutput, nodeName) {
     var begin = null;
     var playState = BMDOutputFrameCompleted;
     var producingEnough = true;
+    var srcFlowID = null;
+
 
     this.each((x, next) => {
       if (!Grain.isGrain(x)) {
@@ -48,10 +51,10 @@ module.exports = function (RED, sdiOutput, nodeName) {
         Promise.resolve(x) :
         this.findCable(x)
         .then(c => {
-          console.log(JSON.stringify(c));
-          console.log(JSON.stringify(f));
           var f = c[0].video[0];
           node.srcFlow = f;
+          node.srcFlowID = f.flowID;
+
           if (f.tags.format !== 'video') {
             return node.preFlightError('Only video sources supported for SDI out.');
           }
@@ -180,6 +183,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
               node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
               break;
           }
+
           if (f.tags.packing)
           {
             bmFormat = sdiOutput.fourCCFormat(f.tags.packing);
@@ -196,6 +200,18 @@ module.exports = function (RED, sdiOutput, nodeName) {
           return x;
         });
       nextJob.then(g => {
+
+        //var flowId = uuid.unparse(g.flow_id);
+        //console.log("** FlowId ******************************: " + flowId);
+        if (uuid.unparse(g.flow_id) !== node.srcFlowID) {
+          //console.log("** Vid Returning Next ******************************");
+          //setTimeout(next, 0);
+          return next();
+        }
+        //else {
+
+        //console.log("** Vid Processing ******************************");
+
         playback.frame(g.buffers[0]);
         sentCount++;
         if (sentCount === +config.frameCache) {
@@ -228,6 +244,9 @@ module.exports = function (RED, sdiOutput, nodeName) {
         var diffTime = process.hrtime(begin);
         var diff = (sentCount * config.timeout) -
             (diffTime[0] * 1000 + diffTime[1] / 1000000|0);
+
+        this.log("********* diff = " + diff);
+
         if ((diff < 0) && (producingEnough === true)) {
           this.warn(`After sending ${sentCount} frames and playing ${playedCount}, not producing frames fast enough for SDI output.`);
           producingEnough = false;
@@ -236,7 +255,9 @@ module.exports = function (RED, sdiOutput, nodeName) {
           this.warn(`After sending ${sentCount} frames and playing ${playedCount}, started producing enough frames fast enough for SDI output.`);
           producingEnough = true;
         }
+
         setTimeout(next, (diff > 0) ? diff : 0);
+        //setTimeout(next, 0);
         // if (sentCount < +config.frameCache) {
         //   node.log(`Caching frame ${sentCount}/${typeof config.frameCache}.`);
         //   playback.frame(g.buffers[0]);

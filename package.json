@@ -11,7 +11,8 @@
     "node-red-contrib-dynamorse-core": "^0.1.4",
     "ajatation": "^0.1.0",
     "macadam": "^0.2.6",
-    "promise": "^7.1.1"
+    "promise": "^7.1.1",
+    "uuid": "^2.0.1"
   },
   "devDependencies": {
     "tape": "^4.6.3"

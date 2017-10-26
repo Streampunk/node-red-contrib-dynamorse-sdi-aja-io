@@ -70,8 +70,9 @@ module.exports = function (RED) {
       },
       node.warn);
 
-    this.eventMuncher(capture, 'frame', payload => {
+    this.eventMuncher(capture, 'frame', (video, audio) => {
       //node.log('Received Frame number: ' + ++frameCount);
+      //node.log('**** Payload: ' + payload);
 
       var grainTime = Buffer.allocUnsafe(10);
       grainTime.writeUIntBE(this.baseTime[0], 0, 6);
@@ -80,7 +81,7 @@ module.exports = function (RED) {
         grainDuration[0] * 1000000000 / grainDuration[1]|0 );
       this.baseTime = [ this.baseTime[0] + this.baseTime[1] / 1000000000|0,
         this.baseTime[1] % 1000000000];
-      return new Grain([payload], grainTime, grainTime, null,
+      return new Grain([video], grainTime, grainTime, null,
         flow.id, source.id, grainDuration); // TODO Timecode support
     });
 
