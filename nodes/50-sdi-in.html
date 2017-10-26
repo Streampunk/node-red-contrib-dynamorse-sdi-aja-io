@@ -29,10 +29,11 @@
       } },
       format : { value : 'v210', validate : function (x) {
         return typeof x === 'string' && x.length === 4;
-      } }
+      } },
+      audio : { value : true }
     },
     inputs:0,
-    outputs:3,
+    outputs:1,
     icon: "funnel.png",
     label: function() {
       return this.name || "sdi-aja-in";
@@ -126,6 +127,10 @@
     <!-- Big-endian 10-bit RGB with SMPTE video levels (64-940) -->
     <option value="R10b">10BitRGBX</option>
   </select>
+  <div class="form-row">
+    <label for="node-input-audio"><i class="fa fa-microphone" aria-hidden="true"></i> audio?</label>
+    <input type="checkbox" id="node-input-audio">
+  </div>
 </div>
 </script>
 
@@ -190,6 +195,10 @@
    <tr>
     <td><i class="fa fa-eye"></i> sampling</td>
     <td>Bit depth and sampling combinations supported by the Aja SDK.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-microphone" aria-hidden="true"></i> audio?</td>
+    <td>Capture audio alongside the video?</td>
    </tr>
   </table>
   </div>
