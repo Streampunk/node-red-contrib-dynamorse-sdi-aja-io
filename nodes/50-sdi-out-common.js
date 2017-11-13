@@ -25,6 +25,18 @@ const BMDOutputFrameFlushed = 3;
 
 const OPTIMUM_BUFFER_SIZE = 5;
 
+
+function ensureInt(value) {
+  if(typeof value === 'number')
+  {
+    return value;
+  }
+  else
+  {
+    return parseInt(value)
+  }
+}
+
 module.exports = function (RED, sdiOutput, nodeName) {
 
   function SDIOut (config) {
@@ -194,8 +206,11 @@ module.exports = function (RED, sdiOutput, nodeName) {
             bmFormat = sdiOutput.fourCCFormat(f.tags.packing);
           }
           this.log("NOTE: Initializing Aja Output to Display Mode " + sdiOutput.intToBMCode(bmMode));
-          playback = new sdiOutput.Playback(config.deviceIndex,
-            bmMode, bmFormat);
+          playback = new sdiOutput.Playback(
+            ensureInt(config.deviceIndex),
+            ensureInt(config.channelNumber),
+            bmMode, 
+            bmFormat);
           playback.on('error', e => {
             node.warn(`Received playback error from Aja card: ${e}`);
             next();

@@ -22,6 +22,7 @@
       name : { value : '' },
       frameCache : { value : 5, validate : RED.validators.number() },
       deviceIndex : { value : 0, vaidate : RED.validators.number() },
+      channelNumber : { value : 3, vaidate : RED.validators.number() },
       timeout : { value : 40, validate : RED.validators.number() }
     },
     inputs:1,
@@ -42,14 +43,16 @@
   <div class="form-row">
     <label for="node-input-frameCache"><i class="fa fa-signal" aria-hidden="true"></i> cache</label>
     <input type="number" id="node-input-frameCache" min="1" placeholder="3" style="width: 100px">
-    <label for="node-input-deviceIndex" style="text-align: right; width: 80px"><i class="fa fa-list" aria-hidden="true"></i> index</label>
+  </div>
+  <div class="form-row">
+    <label for="node-input-deviceIndex"><i class="fa fa-list"></i> index</label>
     <input type="number" id="node-input-deviceIndex" min="0" max="30" placeholder="0" style="width: 100px">
+    <label for="node-input-channelNumber" style="text-align: right; width: 80px"><i class="fa fa-list" aria-hidden="true"></i> channel</label>
+    <input type="number" id="node-input-channelNumber" min="1" max="8" placeholder="1" style="width: 100px">
   </div>
   <div class="form-row">
     <label for="node-input-timeout"><i class="fa fa-clock-o"></i> timeout</label>
     <input type="number" min="0" id="node-input-timeout" placeholder="40" style="width: 100px">
-    <label for="node-input-channel" style="text-align: right; width: 80px"><i class="fa fa-list" aria-hidden="true"></i> index</label>
-    <input type="number" id="node-input-channel" min="0" max="30" placeholder="3" style="width: 100px">
   </div>
 </script>
 
@@ -96,13 +99,13 @@
     <td>Index of the Aja card according to the SDK.</td>
    </tr>
    <tr>
+    <td><i class="fa fa-list" aria-hidden="true"></i> channel</td>
+    <td>Channel number of the Aja card to use for output.</td>
+   </tr>
+   <tr>
     <td><i class="fa fa-clock-o"></i> timeout</td>
     <td>Time to wait between writing each grain. Controls the back-pressure.</td>
    </tr>
-    <tr>
-     <td><i class="fa fa-list" aria-hidden="true"></i> channel</td>
-     <td>Channel number of the Aja card to use for output.</td>
-    </tr>
   </table>
   </div>
 

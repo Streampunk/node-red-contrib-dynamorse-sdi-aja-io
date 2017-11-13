@@ -24,6 +24,7 @@
       description : { value : '' },
       device : { value : '', type : 'device' },
       deviceIndex : { value : 0, validate : RED.validators.number() },
+      channelNumber : { value : 1, validate : RED.validators.number() },
       mode : { value : 'Hi50', validate : function (x) {
         return typeof x === 'string' && x.length === 4;
       } },
@@ -50,8 +51,12 @@
 <div class="form-row">
   <label for="node-input-maxBuffer"><i class="fa fa-suitcase"></i> max buffer</label>
   <input type="number" id="node-input-maxBuffer" placeholder="10" style="width: 100px">
-  <label for="node-input-deviceIndex" style="text-align: right; width: 80px"><i class="fa fa-list" aria-hidden="true"></i> index</label>
+</div>
+<div class="form-row">
+  <label for="node-input-deviceIndex"><i class="fa fa-list"></i> index</label>
   <input type="number" id="node-input-deviceIndex" min="0" max="30" placeholder="0" style="width: 100px">
+  <label for="node-input-channelNumber" style="text-align: right; width: 80px"><i class="fa fa-list" aria-hidden="true"></i> channel</label>
+  <input type="number" id="node-input-channelNumber" min="1" max="8" placeholder="1" style="width: 100px">
 </div>
 <div class="form-row">
   <label for="node-input-description"><i class="fa fa-info-circle"></i> description</label>
@@ -178,6 +183,10 @@
    <tr>
     <td><i class="fa fa-list" aria-hidden="true"></i> index</td>
     <td>Index of the Aja card according to the SDK.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-list" aria-hidden="true"></i> channel</td>
+    <td>Channel number for the Aja card to use to capture the input stream.</td>
    </tr>
    <tr>
     <td><i class="fa fa-info-circle"></i> description</td>

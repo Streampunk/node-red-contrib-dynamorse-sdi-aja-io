@@ -30,6 +30,17 @@ function fixBMDCodes(code) {
 //    output = fs.appendFile('c:\\users\\zztop\\music\\test_aja_out.dat', buffer, 'binary');
 //}
 
+function ensureInt(value) {
+  if(typeof value === 'number')
+  {
+    return value;
+  }
+  else
+  {
+    return parseInt(value)
+  }
+}
+
 module.exports = function (RED) {
   function SDIIn (config) {
     RED.nodes.createNode(this,config);
@@ -38,8 +49,11 @@ module.exports = function (RED) {
     if (!this.context().global.get('updated'))
       return this.log('Waiting for global context updated.');
 
-    var capture = new ajatation.Capture(config.deviceIndex,
-      fixBMDCodes(config.mode), fixBMDCodes(config.format));
+    var capture = new ajatation.Capture(
+      config.deviceIndex, 
+      parseInt(config.channelNumber),
+      fixBMDCodes(config.mode), 
+      fixBMDCodes(config.format));
     var node = this;
     var frameCount = 0;
     var grainDuration = ajatation.modeGrainDuration(fixBMDCodes(config.mode));
