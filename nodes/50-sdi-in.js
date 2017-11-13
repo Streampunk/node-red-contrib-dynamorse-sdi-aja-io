@@ -50,8 +50,8 @@ module.exports = function (RED) {
       return this.log('Waiting for global context updated.');
 
     var capture = new ajatation.Capture(
-      config.deviceIndex, 
-      parseInt(config.channelNumber),
+      ensureInt(config.deviceIndex), 
+      ensureInt(config.channelNumber),
       fixBMDCodes(config.mode), 
       fixBMDCodes(config.format));
     var node = this;
