@@ -37,6 +37,12 @@ function ensureInt(value) {
   }
 }
 
+//const fs = require('fs');
+//function TEST_write_buffer(buffer, deviceId, channel) {
+//  var filename = `c:\\users\\zztop\\music\\test_aja_out_${deviceId}_${channel}.dat`;
+//  output = fs.appendFile(filename, buffer, 'binary');
+//}
+
 module.exports = function (RED, sdiOutput, nodeName) {
 
   function SDIOut (config) {
@@ -65,7 +71,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
       {
         var toReturn = cachedGrain.grain;
         cachedGrain.grain = null;
-        node.log('Found grain match, cached grain: ' + toReturn.getOriginTimestamp());
+        //node.log('Found grain match, cached grain: ' + toReturn.getOriginTimestamp());
 
         return toReturn;
       }
@@ -272,6 +278,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
 
             if(audioGrain != null)
             {
+              //console.log("** GOT CACHED AUDIO GRAIN **")
               videoGrain = g;
             }
           }
@@ -280,6 +287,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
 
           if(videoGrain != null)
           {
+            //console.log("** GOT CACHED VIDEO GRAIN **")
             audioGrain = g;
           }
         } else {
@@ -288,30 +296,33 @@ module.exports = function (RED, sdiOutput, nodeName) {
 
         if(videoGrain != null)
         {
-          var usedBuffers = 0;
+            var usedBuffers = 0;
           
-          if(audioGrain) {
-            usedBuffers = playback.frame(videoGrain.buffers[0], audioGrain.buffers[0]);
-          }
-          else {
-            usedBuffers = playback.frame(videoGrain.buffers[0]);
-          }
+            if(audioGrain) {
+                //console.log("** WE GOT AUDIO **");
+                //TEST_write_buffer(audioGrain.buffers[0], ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
+                usedBuffers = playback.frame(videoGrain.buffers[0], audioGrain.buffers[0]);
+            }
+            else {
+                //console.log("** WE DON'T GOT AUDIO **");
+                usedBuffers = playback.frame(videoGrain.buffers[0]);
+            }
 
-          sentCount++;
-          if (sentCount === +config.frameCache) {
-            this.log('Starting playback.');
-            playback.start();
-            playback.on('played', p => {
-              playedCount++;
-              if (p !== playState) {
-                playState = p;
-                switch (playState) {
-                  case BMDOutputFrameCompleted:
-                    this.warn(`After ${playedCount} frames, playback state returned to frame completed OK.`);
+            sentCount++;
+            if (sentCount === +config.frameCache) {
+                this.log('Starting playback.');
+                playback.start();
+                playback.on('played', p => {
+                    playedCount++;
+                if (p !== playState) {
+                    playState = p;
+                    switch (playState) {
+                        case BMDOutputFrameCompleted:
+                            this.warn(`After ${playedCount} frames, playback state returned to frame completed OK.`);
                     break;
-                  case BMDOutputFrameDisplayedLate:
-                    this.warn(`After ${playedCount} frames, playback state is now displaying frames late.`);
-                    break;
+                    case BMDOutputFrameDisplayedLate:
+                      this.warn(`After ${playedCount} frames, playback state is now displaying frames late.`);
+            break;
                   case BMDOutputFrameDropped:
                     this.warn(`After ${playedCount} frames, playback state is dropping frames.`);
                     break;
@@ -321,10 +332,10 @@ module.exports = function (RED, sdiOutput, nodeName) {
                   default:
                     this.error(`After ${playedCount} frames, playback state is unknown, code ${playState}.`);
                     break;
-                }
-              }
-            });
-          }
+        }
+        }
+        });
+        }
         }
 
         var diff = 0;
@@ -337,7 +348,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
           diff = (usedBuffers - OPTIMUM_BUFFER_SIZE) * frameDurationMs;
         }
 
-        this.log("** UsedBuffer = " + usedBuffers + "; delay = " + diff);
+        //this.log("** UsedBuffer = " + usedBuffers + "; delay = " + diff);
         
         if ((diff < 0) && (producingEnough === true)) {
           this.warn(`After sending ${sentCount} frames and playing ${playedCount}, not producing frames fast enough for SDI output.`);
@@ -369,9 +380,9 @@ module.exports = function (RED, sdiOutput, nodeName) {
         //   playback.frame(g.buffers[0]);
         //   sentCount++;
         // };
-      })
+        })
       .catch(err => {
-        node.error(`Failed to play video on device '${config.deviceIndex}': ${err}`);
+        node.error(`Failed to play video on device '${config.deviceIndex}': ${err}; ${err.stack}`);
       });
     });
 

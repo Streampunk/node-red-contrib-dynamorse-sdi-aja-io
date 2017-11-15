@@ -26,8 +26,9 @@ function fixBMDCodes(code) {
 }
 
 //const fs = require('fs');
-//function TEST_write_buffer(buffer) {
-//    output = fs.appendFile('c:\\users\\zztop\\music\\test_aja_out.dat', buffer, 'binary');
+//function TEST_write_buffer(buffer, deviceId, channel) {
+//  var filename = `c:\\users\\zztop\\music\\test_aja_in_${deviceId}_${channel}.dat`;
+//  output = fs.appendFile(filename, buffer, 'binary');
 //}
 
 function ensureInt(value) {
@@ -98,7 +99,7 @@ module.exports = function (RED) {
 
     this.eventMuncher(capture, 'frame', (video, audio) => {
       //node.log('Received Frame number: ' + ++frameCount);
-      //TEST_write_buffer(audio);
+      //TEST_write_buffer(audio, ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
 
       console.log('Event muching', video.length, audio ? audio.length : "no_audio");
       var grainTime = Buffer.allocUnsafe(10);
