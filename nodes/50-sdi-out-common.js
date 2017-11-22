@@ -37,6 +37,12 @@ function ensureInt(value) {
   }
 }
 
+//const fs = require('fs');
+//function TEST_write_buffer(buffer, deviceId, channel) {
+//  var filename = `c:\\users\\zztop\\music\\test_aja_out_${deviceId}_${channel}.dat`;
+//  output = fs.appendFile(filename, buffer, 'binary');
+//}
+
 module.exports = function (RED, sdiOutput, nodeName) {
 
   function SDIOut (config) {
@@ -51,8 +57,98 @@ module.exports = function (RED, sdiOutput, nodeName) {
     var begin = null;
     var playState = BMDOutputFrameCompleted;
     var producingEnough = true;
-    var srcFlowID = null;
+    var vidSrcFlowID = null;
+    var audSrcFlowID = null;
+    var cachedGrain = { grain: null, isVideo: false };
 
+    function MatchingTimestamps(ts1, ts2) {
+      if(ts1[0] == ts2[0] && ts1[1] == ts2[1]) return true;
+      else return false;
+    }
+    /*
+    // TEST-BEGIN Cache Monitor
+    var grainMap = new Map();
+    var grainList = [];
+    var grainCounter = 0;
+
+    function LogGrain(grain, isVideo) {
+      var timestamp = grain.getOriginTimestamp();
+      var tsString = timestamp[0].toString() + timestamp[1].toString();
+
+      var sequence = grainMap.get(tsString);
+
+      if(sequence === undefined)
+      {
+        sequence = ++grainCounter;
+        grainMap.set(tsString, sequence);
+      }
+
+      grainList.push({ seq: sequence, type: isVideo ? 'v' : 'a'});
+
+      // Print out the list and reset it
+      if(grainList.length == 20)
+      {
+        var aCount = 0;
+        var vCount = 0;
+
+        process.stdout.write("Grain Sequence:\n")
+        for(var i = 0; i < grainList.length; i++)
+        {
+          var entry = grainList[i];
+          process.stdout.write(entry.type + "-" + entry.seq + "; ");
+
+          if(entry.type == "a") {
+            aCount++;
+          } else {
+            vCount++;
+          }
+        }
+        process.stdout.write("\n")
+        grainList = [];
+
+        if(aCount != vCount) {
+          console.warn("!! WARNING: Uneven numbers of audio and video samples received");
+        }
+        if(grainMap.size > 1000)
+        {
+          grainMap.clear();
+        }
+      }
+    }
+
+    function GetGrainSequence(grain) {
+      var timestamp = grain.getOriginTimestamp();
+      var tsString = timestamp[0].toString() + timestamp[1].toString();
+
+      return grainMap.get(tsString);
+    }
+    // TEST-END 
+    */
+
+    function TryGetCachedGrain(grain, isVideo) {
+      //LogGrain(grain, isVideo); // TEST
+
+      if(cachedGrain.grain != null && cachedGrain.isVideo != isVideo && MatchingTimestamps(cachedGrain.grain.getOriginTimestamp(), grain.getOriginTimestamp()))
+      {
+        var toReturn = cachedGrain.grain;
+        cachedGrain.grain = null;
+        //node.log('Found grain match, cached grain: ' + toReturn.getOriginTimestamp());
+
+        return toReturn;
+      }
+      else
+      {
+        if(cachedGrain.grain != null)
+        {
+          //node.warn('!!WARNING!! Discarding expired cached grain: ' + (cachedGrain.isVideo ? 'v' : 'a') + '-' + GetGrainSequence(cachedGrain.grain));
+          node.warn('!!WARNING!! Discarding expired cached grain, cached timecode: ' + cachedGrain.grain.getOriginTimestamp() + ', current timecode: ' + grain.getOriginTimestamp());
+        }
+        cachedGrain.grain = grain;
+        cachedGrain.isVideo = isVideo;
+
+        return null;
+      }
+    }
 
     this.each((x, next) => {
       if (!Grain.isGrain(x)) {
@@ -64,13 +160,21 @@ module.exports = function (RED, sdiOutput, nodeName) {
         Promise.resolve(x) :
         this.findCable(x)
         .then(c => {
-          var f = c[0].video[0];
-          node.srcFlow = f;
-          node.srcFlowID = f.flowID;
+          var fv = c[0].video[0];
+          node.srcFlow = fv;
+          node.vidSrcFlowID = fv.flowID;
 
-          if (f.tags.format !== 'video') {
+          if (fv.tags.format !== 'video') {
             return node.preFlightError('Only video sources supported for SDI out.');
           }
+
+          var fa = (Array.isArray(c[0].audio) && c[0].audio.length > 0) ? c[0].audio[0] : null;
+
+          if(fa != null) {
+            node.log('We have audio: ' + JSON.stringify(c[0].audio));
+            node.audSrcFlowID = fa.flowID;
+          }
+
           // Set defaults to the most commonly format for dynamorse testing
           // TODO: support for DCI modes
           var bmMode = sdiOutput.bmdModeHD1080i50;
@@ -79,7 +183,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
           frameDurationMs = (x.getDuration()[0] * 1000) / x.getDuration()[1]
           node.log('Current frame duration in milliseconds = ' + frameDurationMs);
 
-          switch (f.tags.height) {
+          switch (fv.tags.height) {
             case 2160:
               switch (x.getDuration()[1]) {
                 case 25:
@@ -106,7 +210,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                     sdiOutput.bmdMode4K2160p5994 : sdiOutput.bmdMode4k2160p60;
                   break;
                 default:
-                  node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
+                  node.preFlightError('Could not establish device mode; height = ' + fv.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
                   break;
               }
               break;
@@ -114,13 +218,13 @@ module.exports = function (RED, sdiOutput, nodeName) {
               switch (x.getDuration()[1]) {
                 case 25:
                 case 25000:
-                  bmMode = (f.tags.interlace === true) ?
+                  bmMode = (fv.tags.interlace === true) ?
                     sdiOutput.bmdModeHD1080i50 : sdiOutput.bmdModeHD1080p25;
                     break;
                 case 24:
                 case 24000:
                   if (x.getDuration()[0] === 1001) {
-                    bmMode = (f.tags.interlace === true) ?
+                    bmMode = (fv.tags.interlace === true) ?
                       sdiOutput.bmdModeHD1080i5994 : sdiOutput.bmdModeHD1080p2398;
                   } else {
                     bmMode = sdiOutput.bmdModeHD1080p24;
@@ -129,10 +233,10 @@ module.exports = function (RED, sdiOutput, nodeName) {
                 case 30:
                 case 30000:
                   if (x.getDuration()[0] === 1001) {
-                    bmMode = (f.tags.interlace === true) ?
+                    bmMode = (fv.tags.interlace === true) ?
                       sdiOutput.bmdModeHD1080i5994 : sdiOutput.bmdModeHD1080p2997;
                   } else {
-                    bmMode = (f.tags.interlace === true) ?
+                    bmMode = (fv.tags.interlace === true) ?
                       sdiOutput.bmdModeHD1080i6000 : sdiOutput.bmdModeHD1080p30;
                   }
                   break;
@@ -146,7 +250,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                     sdiOutput.bmdModeHD1080p5994 : sdiOutput.bmdModeHD1080p6000;
                   break;
                 default:
-                  node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
+                  node.preFlightError('Could not establish device mode; height = ' + fv.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
                   break;
               }
               break;
@@ -162,7 +266,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                     sdiOutput.bmdModeHD720p5994 : sdiOutput.bmdModeHD720p60;
                   break;
                 default:
-                  node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
+                  node.preFlightError('Could not establish device mode; height = ' + fv.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
                   break;
               }
               break;
@@ -177,7 +281,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
                   bmMode = bmcModePALp;
                   break;
                 default:
-                  node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
+                  node.preFlightError('Could not establish device mode; height = ' + fv.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
                   break;
               }
               break;
@@ -192,18 +296,18 @@ module.exports = function (RED, sdiOutput, nodeName) {
                   bmMode = bmdModeNTSCp;
                   break;
                 default:
-                  node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
+                  node.preFlightError('Could not establish device mode; height = ' + fv.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
                   break;
               }
               break;
             default:
-              node.preFlightError('Could not establish device mode; height = ' + f.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
+              node.preFlightError('Could not establish device mode; height = ' + fv.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
               break;
           }
 
-          if (f.tags.packing)
+          if (fv.tags.packing)
           {
-            bmFormat = sdiOutput.fourCCFormat(f.tags.packing);
+            bmFormat = sdiOutput.fourCCFormat(fv.tags.packing);
           }
           this.log("NOTE: Initializing Aja Output to Display Mode " + sdiOutput.intToBMCode(bmMode));
           playback = new sdiOutput.Playback(
@@ -221,92 +325,103 @@ module.exports = function (RED, sdiOutput, nodeName) {
         });
       nextJob.then(g => {
 
-        //var flowId = uuid.unparse(g.flow_id);
+        var flowId = uuid.unparse(g.flow_id);
+        var videoGrain = null;
+        var audioGrain = null;
+
         //console.log("** FlowId ******************************: " + flowId);
-        if (uuid.unparse(g.flow_id) !== node.srcFlowID) {
-          //console.log("** Vid Returning Next ******************************");
-          //setTimeout(next, 0);
+        if (flowId === node.vidSrcFlowID) {
+          if(node.audSrcFlowID == null) {
+            videoGrain = g;
+          }
+          else
+          {
+            audioGrain = TryGetCachedGrain(g, true);
+
+            if(audioGrain != null)
+            {
+              videoGrain = g;
+            }
+          }
+        } else if(flowId === node.audSrcFlowID) {
+          videoGrain = TryGetCachedGrain(g, false);
+
+          if(videoGrain != null)
+          {
+            audioGrain = g;
+          }
+        } else {
           return next();
         }
-        //else {
 
-        //console.log("** Vid Processing ******************************");
-
-        var usedBuffers = playback.frame(g.buffers[0]);
-        sentCount++;
-        if (sentCount === +config.frameCache) {
-          this.log('Starting playback.');
-          playback.start();
-          playback.on('played', p => {
-            playedCount++;
-            if (p !== playState) {
-              playState = p;
-              switch (playState) {
-                case BMDOutputFrameCompleted:
-                  this.warn(`After ${playedCount} frames, playback state returned to frame completed OK.`);
-                  break;
-                case BMDOutputFrameDisplayedLate:
-                  this.warn(`After ${playedCount} frames, playback state is now displaying frames late.`);
-                  break;
-                case BMDOutputFrameDropped:
-                  this.warn(`After ${playedCount} frames, playback state is dropping frames.`);
-                  break;
-                case BMDOutputFrameFlushed:
-                  this.warn(`After ${playedCount} frames, playback state is flushing frames.`);
-                  break;
-                default:
-                  this.error(`After ${playedCount} frames, playback state is unknown, code ${playState}.`);
-                  break;
-              }
-            }
-          });
-        }
-
-        var diff = 0;
-        //var diffTime = process.hrtime(begin);
-        //var diff = (sentCount * config.timeout) -
-        //    (diffTime[0] * 1000 + diffTime[1] / 1000000|0);
-
-        if(usedBuffers > OPTIMUM_BUFFER_SIZE) // 5 currently arbitrary number, make this tuneable
+        if(videoGrain != null)
         {
-          diff = (usedBuffers - OPTIMUM_BUFFER_SIZE) * frameDurationMs;
-        }
+            var usedBuffers = 0;
+          
+            if(audioGrain) {
+                //TEST_write_buffer(audioGrain.buffers[0], ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
+                usedBuffers = playback.frame(videoGrain.buffers[0], audioGrain.buffers[0]);
+            }
+            else {
+                usedBuffers = playback.frame(videoGrain.buffers[0]);
+              }
 
-        this.log("** UsedBuffer = " + usedBuffers + "; delay = " + diff);
-        
-        if ((diff < 0) && (producingEnough === true)) {
-          this.warn(`After sending ${sentCount} frames and playing ${playedCount}, not producing frames fast enough for SDI output.`);
-          producingEnough = false;
-        }
-        if ((diff > 0) && (producingEnough === false)) {
-          this.warn(`After sending ${sentCount} frames and playing ${playedCount}, started producing enough frames fast enough for SDI output.`);
-          producingEnough = true;
-        }
+            sentCount++;
+            if (sentCount === +config.frameCache) {
+                this.log('Starting playback.');
+                playback.start();
+                playback.on('played', p => {
+                  playedCount++;
+                  if (p !== playState) {
+                      playState = p;
+                      switch (playState) {
+                        case BMDOutputFrameCompleted:
+                          this.warn(`After ${playedCount} frames, playback state returned to frame completed OK.`);
+                          break;
+                        case BMDOutputFrameDisplayedLate:
+                            this.warn(`After ${playedCount} frames, playback state is now displaying frames late.`);
+                          break;
+                        case BMDOutputFrameDropped:
+                          this.warn(`After ${playedCount} frames, playback state is dropping frames.`);
+                          break;
+                        case BMDOutputFrameFlushed:
+                          this.warn(`After ${playedCount} frames, playback state is flushing frames.`);
+                          break;
+                        default:
+                          this.error(`After ${playedCount} frames, playback state is unknown, code ${playState}.`);
+                          break;
+                      }
+                  }
+                });
+            }
 
-        setTimeout(next, (diff > 0) ? diff : 0);
-        //setTimeout(next, 0);
-        // if (sentCount < +config.frameCache) {
-        //   node.log(`Caching frame ${sentCount}/${typeof config.frameCache}.`);
-        //   playback.frame(g.buffers[0]);
-        //   sentCount++;
-        //   if (sentCount === +config.frameCache) {
-        //     node.log('Starting playback.');
-        //     playback.start();
-        //     playback.on('played', p => {
-        //       playedCount++;
-        //       next(); next();
-        //       if (p > 0) { console.error('XXX'); next(); }
-        //     });
-        //   }
-        //   next();
-        // } else {
-        //   // console.log(`next frame ${sentCount}.`);
-        //   playback.frame(g.buffers[0]);
-        //   sentCount++;
-        // };
+            var diff = 0;
+
+            if(usedBuffers > OPTIMUM_BUFFER_SIZE) // 5 currently arbitrary number, make this tuneable
+            {
+              diff = Math.min((usedBuffers - OPTIMUM_BUFFER_SIZE), 3) * frameDurationMs;
+            }
+
+            //this.log(">> UsedBuffer = " + usedBuffers + "; delay = " + diff);
+            
+            if ((diff < 0) && (producingEnough === true)) {
+              this.warn(`After sending ${sentCount} frames and playing ${playedCount}, not producing frames fast enough for SDI output.`);
+              producingEnough = false;
+            }
+            if ((diff > 0) && (producingEnough === false)) {
+              this.warn(`After sending ${sentCount} frames and playing ${playedCount}, started producing enough frames fast enough for SDI output.`);
+              producingEnough = true;
+            }
+
+            setTimeout(next, (diff > 0) ? diff : 0);
+        }
+        else
+        {
+            setTimeout(next, 0);
+        }
       })
       .catch(err => {
-        node.error(`Failed to play video on device '${config.deviceIndex}': ${err}`);
+        node.error(`Failed to play video on device '${config.deviceIndex}': ${err}; ${err.stack}`);
       });
     });
 
