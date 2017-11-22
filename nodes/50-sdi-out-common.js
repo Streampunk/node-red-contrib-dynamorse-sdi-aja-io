@@ -65,8 +65,69 @@ module.exports = function (RED, sdiOutput, nodeName) {
       if(ts1[0] == ts2[0] && ts1[1] == ts2[1]) return true;
       else return false;
     }
+    /*
+    // TEST-BEGIN Cache Monitor
+    var grainMap = new Map();
+    var grainList = [];
+    var grainCounter = 0;
+
+    function LogGrain(grain, isVideo) {
+      var timestamp = grain.getOriginTimestamp();
+      var tsString = timestamp[0].toString() + timestamp[1].toString();
+
+      var sequence = grainMap.get(tsString);
+
+      if(sequence === undefined)
+      {
+        sequence = ++grainCounter;
+        grainMap.set(tsString, sequence);
+      }
+
+      grainList.push({ seq: sequence, type: isVideo ? 'v' : 'a'});
+
+      // Print out the list and reset it
+      if(grainList.length == 20)
+      {
+        var aCount = 0;
+        var vCount = 0;
+
+        process.stdout.write("Grain Sequence:\n")
+        for(var i = 0; i < grainList.length; i++)
+        {
+          var entry = grainList[i];
+          process.stdout.write(entry.type + "-" + entry.seq + "; ");
+
+          if(entry.type == "a") {
+            aCount++;
+          } else {
+            vCount++;
+          }
+        }
+        process.stdout.write("\n")
+        grainList = [];
+
+        if(aCount != vCount) {
+          console.warn("!! WARNING: Uneven numbers of audio and video samples received");
+        }
+        if(grainMap.size > 1000)
+        {
+          grainMap.clear();
+        }
+      }
+    }
+
+    function GetGrainSequence(grain) {
+      var timestamp = grain.getOriginTimestamp();
+      var tsString = timestamp[0].toString() + timestamp[1].toString();
+
+      return grainMap.get(tsString);
+    }
+    // TEST-END 
+    */
 
     function TryGetCachedGrain(grain, isVideo) {
+      //LogGrain(grain, isVideo); // TEST
+
       if(cachedGrain.grain != null && cachedGrain.isVideo != isVideo && MatchingTimestamps(cachedGrain.grain.getOriginTimestamp(), grain.getOriginTimestamp()))
       {
         var toReturn = cachedGrain.grain;
@@ -79,6 +140,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
       {
         if(cachedGrain.grain != null)
         {
+          //node.warn('!!WARNING!! Discarding expired cached grain: ' + (cachedGrain.isVideo ? 'v' : 'a') + '-' + GetGrainSequence(cachedGrain.grain));
           node.warn('!!WARNING!! Discarding expired cached grain, cached timecode: ' + cachedGrain.grain.getOriginTimestamp() + ', current timecode: ' + grain.getOriginTimestamp());
         }
         cachedGrain.grain = grain;
@@ -278,7 +340,6 @@ module.exports = function (RED, sdiOutput, nodeName) {
 
             if(audioGrain != null)
             {
-              //console.log("** GOT CACHED AUDIO GRAIN **")
               videoGrain = g;
             }
           }
@@ -287,7 +348,6 @@ module.exports = function (RED, sdiOutput, nodeName) {
 
           if(videoGrain != null)
           {
-            //console.log("** GOT CACHED VIDEO GRAIN **")
             audioGrain = g;
           }
         } else {
@@ -299,88 +359,67 @@ module.exports = function (RED, sdiOutput, nodeName) {
             var usedBuffers = 0;
           
             if(audioGrain) {
-                //console.log("** WE GOT AUDIO **");
                 //TEST_write_buffer(audioGrain.buffers[0], ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
                 usedBuffers = playback.frame(videoGrain.buffers[0], audioGrain.buffers[0]);
             }
             else {
-                //console.log("** WE DON'T GOT AUDIO **");
                 usedBuffers = playback.frame(videoGrain.buffers[0]);
-            }
+              }
 
             sentCount++;
             if (sentCount === +config.frameCache) {
                 this.log('Starting playback.');
                 playback.start();
                 playback.on('played', p => {
-                    playedCount++;
-                if (p !== playState) {
-                    playState = p;
-                    switch (playState) {
+                  playedCount++;
+                  if (p !== playState) {
+                      playState = p;
+                      switch (playState) {
                         case BMDOutputFrameCompleted:
-                            this.warn(`After ${playedCount} frames, playback state returned to frame completed OK.`);
-                    break;
-                    case BMDOutputFrameDisplayedLate:
-                      this.warn(`After ${playedCount} frames, playback state is now displaying frames late.`);
-            break;
-                  case BMDOutputFrameDropped:
-                    this.warn(`After ${playedCount} frames, playback state is dropping frames.`);
-                    break;
-                  case BMDOutputFrameFlushed:
-                    this.warn(`After ${playedCount} frames, playback state is flushing frames.`);
-                    break;
-                  default:
-                    this.error(`After ${playedCount} frames, playback state is unknown, code ${playState}.`);
-                    break;
-        }
-        }
-        });
-        }
-        }
+                          this.warn(`After ${playedCount} frames, playback state returned to frame completed OK.`);
+                          break;
+                        case BMDOutputFrameDisplayedLate:
+                            this.warn(`After ${playedCount} frames, playback state is now displaying frames late.`);
+                          break;
+                        case BMDOutputFrameDropped:
+                          this.warn(`After ${playedCount} frames, playback state is dropping frames.`);
+                          break;
+                        case BMDOutputFrameFlushed:
+                          this.warn(`After ${playedCount} frames, playback state is flushing frames.`);
+                          break;
+                        default:
+                          this.error(`After ${playedCount} frames, playback state is unknown, code ${playState}.`);
+                          break;
+                      }
+                  }
+                });
+            }
 
-        var diff = 0;
-        //var diffTime = process.hrtime(begin);
-        //var diff = (sentCount * config.timeout) -
-        //    (diffTime[0] * 1000 + diffTime[1] / 1000000|0);
+            var diff = 0;
 
-        if(usedBuffers > OPTIMUM_BUFFER_SIZE) // 5 currently arbitrary number, make this tuneable
+            if(usedBuffers > OPTIMUM_BUFFER_SIZE) // 5 currently arbitrary number, make this tuneable
+            {
+              diff = Math.min((usedBuffers - OPTIMUM_BUFFER_SIZE), 3) * frameDurationMs;
+            }
+
+            //this.log(">> UsedBuffer = " + usedBuffers + "; delay = " + diff);
+            
+            if ((diff < 0) && (producingEnough === true)) {
+              this.warn(`After sending ${sentCount} frames and playing ${playedCount}, not producing frames fast enough for SDI output.`);
+              producingEnough = false;
+            }
+            if ((diff > 0) && (producingEnough === false)) {
+              this.warn(`After sending ${sentCount} frames and playing ${playedCount}, started producing enough frames fast enough for SDI output.`);
+              producingEnough = true;
+            }
+
+            setTimeout(next, (diff > 0) ? diff : 0);
+        }
+        else
         {
-          diff = (usedBuffers - OPTIMUM_BUFFER_SIZE) * frameDurationMs;
+            setTimeout(next, 0);
         }
-
-        //this.log("** UsedBuffer = " + usedBuffers + "; delay = " + diff);
-        
-        if ((diff < 0) && (producingEnough === true)) {
-          this.warn(`After sending ${sentCount} frames and playing ${playedCount}, not producing frames fast enough for SDI output.`);
-          producingEnough = false;
-        }
-        if ((diff > 0) && (producingEnough === false)) {
-          this.warn(`After sending ${sentCount} frames and playing ${playedCount}, started producing enough frames fast enough for SDI output.`);
-          producingEnough = true;
-        }
-
-        setTimeout(next, (diff > 0) ? diff : 0);
-        //setTimeout(next, 0);
-        // if (sentCount < +config.frameCache) {
-        //   node.log(`Caching frame ${sentCount}/${typeof config.frameCache}.`);
-        //   playback.frame(g.buffers[0]);
-        //   sentCount++;
-        //   if (sentCount === +config.frameCache) {
-        //     node.log('Starting playback.');
-        //     playback.start();
-        //     playback.on('played', p => {
-        //       playedCount++;
-        //       next(); next();
-        //       if (p > 0) { console.error('XXX'); next(); }
-        //     });
-        //   }
-        //   next();
-        // } else {
-        //   // console.log(`next frame ${sentCount}.`);
-        //   playback.frame(g.buffers[0]);
-        //   sentCount++;
-        // };
-        })
+      })
       .catch(err => {
         node.error(`Failed to play video on device '${config.deviceIndex}': ${err}; ${err.stack}`);
       });

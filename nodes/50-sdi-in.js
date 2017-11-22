@@ -101,7 +101,7 @@ module.exports = function (RED) {
       //node.log('Received Frame number: ' + ++frameCount);
       //TEST_write_buffer(audio, ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
 
-      console.log('Event muching', video.length, audio ? audio.length : "no_audio");
+      //console.log('Event munching', video.length, audio ? audio.length : "no_audio");
       var grainTime = Buffer.allocUnsafe(10);
       grainTime.writeUIntBE(this.baseTime[0], 0, 6);
       grainTime.writeUInt32BE(this.baseTime[1], 6);
@@ -111,9 +111,13 @@ module.exports = function (RED) {
         this.baseTime[1] % 1000000000];
       var va = [ new Grain([video], grainTime, grainTime, null,
         ids.vFlowID, ids.vSourceID, grainDuration) ]; // TODO Timecode support
-      if (config.audio === true && audio) va.push(
-        new Grain([audio], grainTime, grainTime, null,
+      if (config.audio === true && audio) { 
+        va.push( new Grain([audio], grainTime, grainTime, null,
           ids.aFlowID, ids.aSourceID, grainDuration));
+      } else if (config.audio === true) {
+        console.warn('!! WARNING: Missing audio sample on input !!');
+      }
+
       return va;
     });
 
