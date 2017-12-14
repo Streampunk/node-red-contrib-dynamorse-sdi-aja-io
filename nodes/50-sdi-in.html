@@ -147,80 +147,96 @@
 </style>
 
 <script type="text/x-red" data-help-name="sdi-aja-in">
-  <h1>SDI input</h1>
-  <h2>via Aja Desktop Video SDK TODO: correct for Aja Kona</h2>
-  <p>Receive an SDI stream via <a href="https://www.npmjs.com/package/ajatation">ajatation</a>,
-  a Node.js mmodule providing bindings to the Aja Desktop Video SDK.</p>
+    <h1>SDI input</h1>
+    <h2>via Aja Desktop Video SDK TODO: correct for Aja Kona</h2>
+    <p>
+        Receive an SDI stream via <a href="https://www.npmjs.com/package/ajatation">ajatation</a>,
+        a Node.js mmodule providing bindings to the Aja Desktop Video SDK.
+    </p>
 
-  <p>Prior to deployment, the kind of input video signal must be known, as must
-  the index of the Aja interface card. Currently found by trial and error,
-  the development of a tool to help with this is
-  <a href="https://github.com/Streampunk/ajatation/issues/4">under consideration</a>.</p>
+    <p>
+        Prior to deployment, the kind of input video signal must be known, as must
+        the index of the Aja interface card. This may be accomplished
+        using the Aja Control Panel tool: a control at the top of the app UI will list the installed Aja cards,
+        showing the card name, followed by its index; e.g. 'KonaIPV4Ch1SFP - 1' - in this case the index of
+        this Kona card is 1. The tool will also show the input video format.
+    </p>
 
-  <h3>Outputs</h3>
-  <ol>
-   <li>Video.</li>
-   <li>Audio - see
-   <a href="https://github.com/Streampunk/ajatation/issues/5">this issue</a>.</li>
-   <li>Events including ancillary data - see
-   <a href="https://github.com/Streampunk/ajatation/issues/6">this issue</a>.</li>
-  </ol>
+    <h3>Outputs</h3>
+    <ol>
+        <li>Video.</li>
+        <li>
+            Audio - see
+            <a href="https://github.com/Streampunk/ajatation/issues/5">this issue</a>.
+        </li>
+        <li>
+            Events including ancillary data - see
+            <a href="https://github.com/Streampunk/ajatation/issues/6">this issue</a>.
+        </li>
+    </ol>
 
-  <h3>Parameters</h3>
-  <div class="param-table">
-  <table>
-   <tr>
-    <th>parameter</th><th>description</th>
-   </tr>
-   <tr>
-    <td><i class="fa fa-tag" aria-hidden="true"></i> name</td>
-    <td>Name of the node. Also used as source &amp; flow label.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-suitcase"></i> max buffer</td>
-    <td>Maximum number of grains to buffer before overflowing.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-list" aria-hidden="true"></i> index</td>
-    <td>Index of the Aja card according to the SDK.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-list" aria-hidden="true"></i> channel</td>
-    <td>Channel number for the Aja card to use to capture the input stream.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-info-circle"></i> description</td>
-    <td>Optional description of the output NMOS source and flow.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-tablet"></i> device</td>
-    <td>Select or create an NMOS device for the output source and flow.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-video-camera"></i> mode</td>
-    <td>Picture dimensions, timing and interlace modes supported by the
-    Aja SDK.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-eye"></i> sampling</td>
-    <td>Bit depth and sampling combinations supported by the Aja SDK.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-microphone" aria-hidden="true"></i> audio?</td>
-    <td>Capture audio alongside the video?</td>
-   </tr>
-  </table>
-  </div>
+    <h3>Parameters</h3>
+    <div class="param-table">
+        <table>
+            <tr>
+                <th>parameter</th>
+                <th>description</th>
+            </tr>
+            <tr>
+                <td><i class="fa fa-tag" aria-hidden="true"></i> name</td>
+                <td>Name of the node. Also used as source &amp; flow label.</td>
+            </tr>
+            <tr>
+                <td><i class="fa fa-suitcase"></i> max buffer</td>
+                <td>Maximum number of grains to buffer before overflowing.</td>
+            </tr>
+            <tr>
+                <td><i class="fa fa-list" aria-hidden="true"></i> index</td>
+                <td>Index of the Aja card according to the SDK.</td>
+            </tr>
+            <tr>
+                <td><i class="fa fa-list" aria-hidden="true"></i> channel</td>
+                <td>Channel number for the Aja card to use to capture the input stream.</td>
+            </tr>
+            <tr>
+                <td><i class="fa fa-info-circle"></i> description</td>
+                <td>Optional description of the output NMOS source and flow.</td>
+            </tr>
+            <tr>
+                <td><i class="fa fa-tablet"></i> device</td>
+                <td>Select or create an NMOS device for the output source and flow.</td>
+            </tr>
+            <tr>
+                <td><i class="fa fa-video-camera"></i> mode</td>
+                <td>
+                    Picture dimensions, timing and interlace modes supported by the
+                    Aja SDK.
+                </td>
+            </tr>
+            <tr>
+                <td><i class="fa fa-eye"></i> sampling</td>
+                <td>Bit depth and sampling combinations supported by the Aja SDK.</td>
+            </tr>
+            <tr>
+                <td><i class="fa fa-microphone" aria-hidden="true"></i> audio?</td>
+                <td>Capture audio alongside the video?</td>
+            </tr>
+        </table>
+    </div>
 
-  <p>This node produces data from a live data source. Attempts by a consumer to
-  apply back-pressure do not pause the input data and will cause grains to be
-  dropped at once the buffer is full. Through this node interface, dynamorse has
-  no means to control the live-running data rate provided by the Aja SDK.</p>
+    <p>
+        This node produces data from a live data source. Attempts by a consumer to
+        apply back-pressure do not pause the input data and will cause grains to be
+        dropped at once the buffer is full. Through this node interface, dynamorse has
+        no means to control the live-running data rate provided by the Aja SDK.
+    </p>
 
-  <h3>Maturity</h3>
-  <p>The <a href="https://www.npmjs.com/package/ajatation">ajatation</a> library is
-  implemented with support for streaming frames of video from Backmagic hardware
-  into Node.js buffers. The work to integrate this library into dynamorse has
-  underway -
-  <a href="https://github.com/Streampunk/dynamorse/issues/12">status</a>.</p>
+    <h3>Maturity</h3>
+    <p>
+        The <a href="https://www.npmjs.com/package/ajatation">ajatation</a> library is
+        implemented with support for streaming frames of video from Backmagic hardware
+        into Node.js buffers. The work to integrate this library into dynamorse has
+        underway -
+        <a href="https://github.com/Streampunk/dynamorse/issues/12">status</a>.
+    </p>
 </script>

@@ -59,7 +59,7 @@
 <script type="text/x-red" data-help-name="sdi-aja-out">
   <h1>SDI Aja output</h1>
   <h2>via Aja Desktop Video SDK</h2>
-  <p>Send an SDI stream via <a href="https://www.npmjs.com/package/macadam">macadam</a>,
+  <p>Send an SDI stream via <a href="https://www.npmjs.com/package/ajatation">ajatation</a>,
   a Node.js module providing bindings to the Blackmagic Desktop Video SDK.</p>
 
   <h3>Inputs</h3>
@@ -76,9 +76,10 @@
 
   <p>The output card is configured with mode and format from the parameters of the flow.</p>
 
-  <p>Before deployment, please determine the index of the Blackmagic interface card. Currently
-  found by trial and error, the development of a tool to help with this is
-  <a href="https://github.com/Streampunk/macadam/issues/4">under consideration</a>.</p>
+  <p>Before deployment, please determine the index of the Aja interface card. This may be accomplished
+  using the Aja Control Panel tool: a control at the top of the app UI will list the installed Aja cards,
+  showing the card name, followed by its index; e.g. 'KonaIPV4Ch1SFP - 1' - in this case the index of
+  this Kona card is 1.</p>
 
   <h3>Parameters</h3>
   <div class="param-table">
@@ -110,10 +111,9 @@
   </div>
 
   <h3>Maturity</h3>
-  <p>The <a href="https://www.npmjs.com/package/macadam">Ajatation</a> library is
-  implemented with support for streaming frames of video from Node.js buffers to
+  <p>The Ajatation library is implemented with support for streaming frames of video from Node.js buffers to
   Aja hardware. The work to integrate this library into dynamorse is
-  underway -
+  underway.
   <a href="https://github.com/Streampunk/dynamorse/issues/12">status</a>.</p>
 
 </script>
