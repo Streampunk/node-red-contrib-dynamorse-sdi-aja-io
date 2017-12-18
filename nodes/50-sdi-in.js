@@ -17,6 +17,7 @@ var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
 var ajatation;
 try { ajatation = require('ajatation'); } catch(err) { console.log('SDI-Aja-In: ' + err); }
+try { logUtils = require('./log-utils'); } catch (err) { console.log('logUtils: ' + err); }
 
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 
@@ -55,22 +56,30 @@ module.exports = function (RED) {
       ensureInt(config.channelNumber),
       fixBMDCodes(config.mode), 
       fixBMDCodes(config.format));
+
+    var actualMode = ajatation.intToBMCode(capture.getVideoFormat());
+
+    if(actualMode != config.mode)
+    {
+      console.warn("Input Video Format (" + actualMode + ") does not match configuration(" + config.mode + ") - reconfiguring");
+    }
+
     var node = this;
     var frameCount = 0;
-    var grainDuration = ajatation.modeGrainDuration(fixBMDCodes(config.mode));
+    var grainDuration = ajatation.modeGrainDuration(fixBMDCodes(actualMode));
 
     capture.enableAudio(0,0,0);
 
     this.vtags = {
       format : 'video',
       encodingName : 'raw',
-      width : ajatation.modeWidth(fixBMDCodes(config.mode)),
-      height : ajatation.modeHeight(fixBMDCodes(config.mode)),
+      width : ajatation.modeWidth(fixBMDCodes(actualMode)),
+      height : ajatation.modeHeight(fixBMDCodes(actualMode)),
       depth : ajatation.formatDepth(fixBMDCodes(config.format)),
       packing : ajatation.formatFourCC(fixBMDCodes(config.format)),
       sampling : ajatation.formatSampling(fixBMDCodes(config.format)),
       clockRate : 90000,
-      interlace : ajatation.modeInterlace(fixBMDCodes(config.mode)),
+      interlace : ajatation.modeInterlace(fixBMDCodes(actualMode)),
       colorimetry : ajatation.formatColorimetry(fixBMDCodes(config.format)),
       grainDuration : grainDuration
     };
@@ -95,6 +104,7 @@ module.exports = function (RED) {
       aSourceID: (config.audio === true) ? this.sourceID('audio[0]') : undefined
     };
 
+    console.log(`Capture Video Tags: `, JSON.stringify(this.vtags));
     console.log(`You wanted audio?`, ids);
 
     this.eventMuncher(capture, 'frame', (video, audio) => {
@@ -111,9 +121,12 @@ module.exports = function (RED) {
         this.baseTime[1] % 1000000000];
       var va = [ new Grain([video], grainTime, grainTime, null,
         ids.vFlowID, ids.vSourceID, grainDuration) ]; // TODO Timecode support
+      logUtils.LogCaptureGrain(va[0], true); // TEST
+
       if (config.audio === true && audio) { 
         va.push( new Grain([audio], grainTime, grainTime, null,
           ids.aFlowID, ids.aSourceID, grainDuration));
+        logUtils.LogCaptureGrain(va[1], false); // TEST
       } else if (config.audio === true) {
         console.warn('!! WARNING: Missing audio sample on input !!');
       }
