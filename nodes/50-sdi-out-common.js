@@ -39,6 +39,23 @@ function ensureInt(value) {
   }
 }
 
+
+function extractVersions (v) {
+  var m = v.match(/^([0-9]+):([0-9]+)$/);
+  if (m === null) { return [Number.MAX_SAFE_INTEGER, 0]; }
+  return [+m[1], +m[2]];
+}
+
+function compareVersions (l, r) {
+  var lm = extractVersions(l);
+  var rm = extractVersions(r);
+  if (lm[0] < rm[0]) return -1;
+  if (lm[0] > rm[0]) return 1;
+  if (lm[1] < rm[1]) return -1;
+  if (lm[1] > rm[1]) return 1;
+  return 0;
+}
+
 module.exports = function (RED, sdiOutput, nodeName) {
 
   // Extensive pipeline logging is disabled by default. Uncommenting the
@@ -60,37 +77,65 @@ module.exports = function (RED, sdiOutput, nodeName) {
     var producingEnough = true;
     var vidSrcFlowID = null;
     var audSrcFlowID = null;
-    var cachedGrain = { grain: null, isVideo: false };
 
     function MatchingTimestamps(ts1, ts2) {
       if(ts1[0] == ts2[0] && ts1[1] == ts2[1]) return true;
       else return false;
     }
-      
-    function TryGetCachedGrain(grain, isVideo) {
-      logUtils.LogPlaybackGrain(grain, isVideo); // TEST
 
-      if(cachedGrain.grain != null && cachedGrain.isVideo != isVideo && MatchingTimestamps(cachedGrain.grain.getOriginTimestamp(), grain.getOriginTimestamp()))
-      {
-        var toReturn = cachedGrain.grain;
-        cachedGrain.grain = null;
-        //node.log('Found grain match, cached grain: ' + toReturn.getOriginTimestamp());
+    //var cachedGrain = { grain: null, isVideo: false };  
+    //function TryGetCachedGrain(grain, isVideo) {
+    //  logUtils.LogPlaybackGrain(grain, isVideo); // TEST
+    //
+    //  if(cachedGrain.grain != null && cachedGrain.isVideo != isVideo && MatchingTimestamps(cachedGrain.grain.getOriginTimestamp(), grain.getOriginTimestamp()))
+    //  {
+    //    var toReturn = cachedGrain.grain;
+    //    cachedGrain.grain = null;
+    //    //node.log('Found grain match, cached grain: ' + toReturn.getOriginTimestamp());
+    //
+    //    return toReturn;
+    //  }
+    //  else
+    //  {
+    //    if(cachedGrain.grain != null)
+    //    {
+    //      //node.warn('!!WARNING!! Discarding expired cached grain: ' + (cachedGrain.isVideo ? 'v' : 'a') + '-' + GetGrainSequence(cachedGrain.grain));
+    //      logUtils.LogAnomaly('Discarding expired cached grain: ' + (cachedGrain.isVideo ? 'v' : 'a') + '; cached timecode: ' + cachedGrain.grain.getOriginTimestamp()[1] + '; current timecode: ' + grain.getOriginTimestamp()[1]);
+    //    }
+    //    cachedGrain.grain = grain;
+    //    cachedGrain.isVideo = isVideo;
+    //
+    //    return null;
+    //  }
+    //}
 
-        return toReturn;
-      }
-      else
-      {
-        if(cachedGrain.grain != null)
-        {
-          //node.warn('!!WARNING!! Discarding expired cached grain: ' + (cachedGrain.isVideo ? 'v' : 'a') + '-' + GetGrainSequence(cachedGrain.grain));
-          logUtils.LogAnomaly('Discarding expired cached grain: ' + (cachedGrain.isVideo ? 'v' : 'a') + '; cached timecode: ' + cachedGrain.grain.getOriginTimestamp()[1] + '; current timecode: ' + grain.getOriginTimestamp()[1]);
+    var grainCache = {};
+
+    function tryGetCachedGrain (grain, type) { // TODO change to fuzzy match
+      let timestamp = grain.formatTimestamp(grain.ptpOrigin);
+      let cachedGrain = grainCache[timestamp];
+      if (cachedGrain) {
+        if (cachedGrain.type !== type) { // TODO consider other grain types
+          delete grainCache[timestamp];
+          return cachedGrain.grain;
+        } else {
+          logUtils.LogAnomaly(`For timestamp ${timestamp}, received two grains of the same type ${type}.`);
         }
-        cachedGrain.grain = grain;
-        cachedGrain.isVideo = isVideo;
-
+      } else {
+        grainCache[timestamp] = { grain: grain, type: type };
         return null;
       }
     }
+
+    var clearDown = setInterval(() => {
+      let grainKeys = Object.keys(grainCache);
+      node.log(`Clearing down grain cache of size ${grainKeys.length}.`);
+      let ditch = grainKeys.sort(compareVersions).slice(0, -10);
+      ditch.forEach(x => {
+        logUtils.LogAnomaly(`For timestamp ${x}, grain of type ${grainCache[x].type} was not matched. Discarding.`);
+        delete grainCache[x];
+      });
+    }, 5000);
 
     this.each((x, next) => {
       if (!Grain.isGrain(x)) {
@@ -285,17 +330,17 @@ module.exports = function (RED, sdiOutput, nodeName) {
           }
           else
           {
-            audioGrain = TryGetCachedGrain(g, true);
+            audioGrain = tryGetCachedGrain(g, 'audio');
 
-            if(audioGrain != null)
+            if(audioGrain) 
             {
               videoGrain = g;
             }
           }
         } else if(flowId === node.audSrcFlowID) {
-          videoGrain = TryGetCachedGrain(g, false);
+          videoGrain = tryGetCachedGrain(g, 'video');
 
-          if(videoGrain != null)
+          if(videoGrain)
           {
             audioGrain = g;
           }
@@ -383,6 +428,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
     node.done(() => {
       node.log('No more to see here!');
       playback.stop();
+      clearInterval(clearDown);
     });
     node.close(() => {
       node.log('Closing the video - too bright!');
