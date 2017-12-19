@@ -430,7 +430,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
       playback.stop();
       clearInterval(clearDown);
     });
-    node.close(() => {
+    node.on('close', () => {
       node.log('Closing the video - too bright!');
       playback.stop();
     });
