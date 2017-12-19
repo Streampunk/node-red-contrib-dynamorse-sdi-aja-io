@@ -18,6 +18,8 @@ var util = require('util');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var uuid = require('uuid');
 
+try { logUtils = require('./log-utils'); } catch (err) { console.log('logUtils: ' + err); }
+
 const BMDOutputFrameCompleted = 0;
 const BMDOutputFrameDisplayedLate = 1;
 const BMDOutputFrameDropped = 2;
@@ -37,13 +39,12 @@ function ensureInt(value) {
   }
 }
 
-//const fs = require('fs');
-//function TEST_write_buffer(buffer, deviceId, channel) {
-//  var filename = `c:\\users\\zztop\\music\\test_aja_out_${deviceId}_${channel}.dat`;
-//  output = fs.appendFile(filename, buffer, 'binary');
-//}
-
 module.exports = function (RED, sdiOutput, nodeName) {
+
+  // Extensive pipeline logging is disabled by default. Uncommenting the
+  // statement below outputs pipline statistics allowing grain movement
+  // to be tracked and measured for latency and smoothness
+  //logUtils.EnableLogging();
 
   function SDIOut (config) {
     RED.nodes.createNode(this, config);
@@ -65,68 +66,9 @@ module.exports = function (RED, sdiOutput, nodeName) {
       if(ts1[0] == ts2[0] && ts1[1] == ts2[1]) return true;
       else return false;
     }
-    /*
-    // TEST-BEGIN Cache Monitor
-    var grainMap = new Map();
-    var grainList = [];
-    var grainCounter = 0;
-
-    function LogGrain(grain, isVideo) {
-      var timestamp = grain.getOriginTimestamp();
-      var tsString = timestamp[0].toString() + timestamp[1].toString();
-
-      var sequence = grainMap.get(tsString);
-
-      if(sequence === undefined)
-      {
-        sequence = ++grainCounter;
-        grainMap.set(tsString, sequence);
-      }
-
-      grainList.push({ seq: sequence, type: isVideo ? 'v' : 'a'});
-
-      // Print out the list and reset it
-      if(grainList.length == 20)
-      {
-        var aCount = 0;
-        var vCount = 0;
-
-        process.stdout.write("Grain Sequence:\n")
-        for(var i = 0; i < grainList.length; i++)
-        {
-          var entry = grainList[i];
-          process.stdout.write(entry.type + "-" + entry.seq + "; ");
-
-          if(entry.type == "a") {
-            aCount++;
-          } else {
-            vCount++;
-          }
-        }
-        process.stdout.write("\n")
-        grainList = [];
-
-        if(aCount != vCount) {
-          console.warn("!! WARNING: Uneven numbers of audio and video samples received");
-        }
-        if(grainMap.size > 1000)
-        {
-          grainMap.clear();
-        }
-      }
-    }
-
-    function GetGrainSequence(grain) {
-      var timestamp = grain.getOriginTimestamp();
-      var tsString = timestamp[0].toString() + timestamp[1].toString();
-
-      return grainMap.get(tsString);
-    }
-    // TEST-END 
-    */
-
+      
     function TryGetCachedGrain(grain, isVideo) {
-      //LogGrain(grain, isVideo); // TEST
+      logUtils.LogPlaybackGrain(grain, isVideo); // TEST
 
       if(cachedGrain.grain != null && cachedGrain.isVideo != isVideo && MatchingTimestamps(cachedGrain.grain.getOriginTimestamp(), grain.getOriginTimestamp()))
       {
@@ -141,7 +83,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
         if(cachedGrain.grain != null)
         {
           //node.warn('!!WARNING!! Discarding expired cached grain: ' + (cachedGrain.isVideo ? 'v' : 'a') + '-' + GetGrainSequence(cachedGrain.grain));
-          node.warn('!!WARNING!! Discarding expired cached grain, cached timecode: ' + cachedGrain.grain.getOriginTimestamp() + ', current timecode: ' + grain.getOriginTimestamp());
+          logUtils.LogAnomaly('Discarding expired cached grain: ' + (cachedGrain.isVideo ? 'v' : 'a') + '; cached timecode: ' + cachedGrain.grain.getOriginTimestamp()[1] + '; current timecode: ' + grain.getOriginTimestamp()[1]);
         }
         cachedGrain.grain = grain;
         cachedGrain.isVideo = isVideo;
@@ -182,6 +124,8 @@ module.exports = function (RED, sdiOutput, nodeName) {
 
           frameDurationMs = (x.getDuration()[0] * 1000) / x.getDuration()[1]
           node.log('Current frame duration in milliseconds = ' + frameDurationMs);
+
+          console.log("Playback Video Tags: " + JSON.stringify(fv.tags));
 
           switch (fv.tags.height) {
             case 2160:
@@ -246,8 +190,13 @@ module.exports = function (RED, sdiOutput, nodeName) {
                   break;
                 case 60:
                 case 60000:
-                  bmMode = (x.getDuration()[0] === 1001) ?
-                    sdiOutput.bmdModeHD1080p5994 : sdiOutput.bmdModeHD1080p6000;
+                  if (x.getDuration()[0] === 1001) {
+                    bmMode = (fv.tags.interlace === true) ?
+                      sdiOutput.bmdModeHD1080i5994 : sdiOutput.bmdModeHD1080p5994;
+                  } else {
+                    bmMode = (fv.tags.interlace === true) ?
+                      sdiOutput.bmdModeHD1080i6000 : sdiOutput.bmdModeHD1080p6000;
+                  }
                   break;
                 default:
                   node.preFlightError('Could not establish device mode; height = ' + fv.tags.height + '; duration = ' + x.getDuration()[0] + '/' + x.getDuration()[1]);
@@ -359,7 +308,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
             var usedBuffers = 0;
           
             if(audioGrain) {
-                //TEST_write_buffer(audioGrain.buffers[0], ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
+                //logUtils.WriteTestBuffer(audioGrain.buffers[0], ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
                 usedBuffers = playback.frame(videoGrain.buffers[0], audioGrain.buffers[0]);
             }
             else {
@@ -400,6 +349,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
             if(usedBuffers > OPTIMUM_BUFFER_SIZE) // 5 currently arbitrary number, make this tuneable
             {
               diff = Math.min((usedBuffers - OPTIMUM_BUFFER_SIZE), 3) * frameDurationMs;
+              //diff = frameDurationMs;
             }
 
             //this.log(">> UsedBuffer = " + usedBuffers + "; delay = " + diff);
@@ -413,6 +363,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
               producingEnough = true;
             }
 
+            //setTimeout(next, 0);
             setTimeout(next, (diff > 0) ? diff : 0);
         }
         else
