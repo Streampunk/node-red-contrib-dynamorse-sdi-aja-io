@@ -51,6 +51,11 @@ module.exports = function (RED) {
     if (!this.context().global.get('updated'))
       return this.log('Waiting for global context updated.');
 
+    var deviceSdkVersion = ajatation.deviceVersion();
+    var deviceIndex = ajatation.getFirstDevice();
+
+    console.info(`initializing Aja card. ${deviceSdkVersion}; first device = ${deviceIndex}`)
+
     var capture = new ajatation.Capture(
       ensureInt(config.deviceIndex), 
       ensureInt(config.channelNumber),

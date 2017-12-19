@@ -67,6 +67,11 @@ module.exports = function (RED, sdiOutput, nodeName) {
     RED.nodes.createNode(this, config);
     redioactive.Spout.call(this, config);
 
+    var deviceSdkVersion = sdiOutput.deviceVersion();
+    var deviceIndex = sdiOutput.getFirstDevice();
+
+    console.info(`initializing Aja card. ${deviceSdkVersion}; first device = ${deviceIndex}`)
+
     this.srcFlow = null;
     var sentCount = 0;
     var playedCount = 0;
