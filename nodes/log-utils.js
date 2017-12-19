@@ -11,6 +11,7 @@ var vTotalRecvCount = 0;
 var initialized = false;
 var logFilename = null;
 var startTime = null;
+var loggingEnabled = false;
 
 const fs = require('fs');
 
@@ -28,7 +29,7 @@ function Initialize()
 
     var now = new Date()
     var timestamp = now.toISOString().replace(/:/g, "_");
-    logFilename = "c:\\users\\zztop\\logs\\grain-counts-" + timestamp + ".csv";
+    logFilename = "grain-counts-" + timestamp + ".csv";
 
     fs.appendFileSync(logFilename, "Timestamp, VideoSent, AudioSent, VideoReceived, AudioReceived, originalTimeStamp, totalVideoSent, totalAudioSent, totalVideoRcvr, totalAudioRcvd, anomaly,\r\n");
 }
@@ -43,7 +44,7 @@ function GetFilename()
     return logFilename;
 }
 
-function WriteLog(entry, echo = false)
+function WriteLog(entry)
 {
     var filename = GetFilename();
     var timeDiff = Date.now() - startTime;
@@ -51,78 +52,86 @@ function WriteLog(entry, echo = false)
     var logString = timeDiff + ", " + entry + "\r\n";
 
     fs.appendFileSync(filename, logString);
+}
 
-    if(echo) 
-    {
-        console.warn(entry);
-    }
+function EnableLogging(enable = true) 
+{
+    loggingEnabled = enable;
 }
 
 function LogAnomaly(info)
 {
-    var entryString = ", , , , , , , , , " + info + ",";
-    WriteLog(entryString, true);
+    if(loggingEnabled)
+    {
+        var entryString = ", , , , , , , , , " + info + ",";
+        WriteLog(entryString);
+    }
+
+    console.warn(entry);
 }
 
 function LogGrain(isCapture, grain, isVideo) 
 {
-    var timestamp = grain.getOriginTimestamp();
-    var tsString = timestamp[0].toString() + timestamp[1].toString();
-
-    var sequence = grainMap.get(tsString);
-
-    if(sequence === undefined)
+    if(loggingEnabled)
     {
-        sequence = ++grainCounter;
-        grainMap.set(tsString, sequence);
-    }
+        var timestamp = grain.getOriginTimestamp();
+        var tsString = timestamp[0].toString() + timestamp[1].toString();
 
-    //"Timestamp, VideoSent, AudioSent, VideoReceived, AudioReceived, originalTimeStamp, totalVideoSent, totalAudioSent, totalVideoRcvr, totalAudioRcvd, anomaly"
-    var entryString = null;
+        var sequence = grainMap.get(tsString);
 
-    if(isCapture == true) 
-    {
-        if(isVideo == true) 
+        if(sequence === undefined)
         {
-            entryString = sequence + ", , , , "
-            vTotalSentCount++;
-        } 
-        else 
-        {
-            entryString = ", " + sequence + ", , , "
-            aTotalSentCount++;
+            sequence = ++grainCounter;
+            grainMap.set(tsString, sequence);
         }
-    }
-    else
-    {
-        if(isVideo == true) 
+
+        //"Timestamp, VideoSent, AudioSent, VideoReceived, AudioReceived, originalTimeStamp, totalVideoSent, totalAudioSent, totalVideoRcvr, totalAudioRcvd, anomaly"
+        var entryString = null;
+
+        if(isCapture == true) 
         {
-            entryString = ", , " + sequence + ", , "
-            vTotalRecvCount++;
-        } 
-        else 
-        {
-            entryString = ", , , " + sequence + ", "
-            aTotalRecvCount++;
+            if(isVideo == true) 
+            {
+                entryString = sequence + ", , , , "
+                vTotalSentCount++;
+            } 
+            else 
+            {
+                entryString = ", " + sequence + ", , , "
+                aTotalSentCount++;
+            }
         }
-    }
+        else
+        {
+            if(isVideo == true) 
+            {
+                entryString = ", , " + sequence + ", , "
+                vTotalRecvCount++;
+            } 
+            else 
+            {
+                entryString = ", , , " + sequence + ", "
+                aTotalRecvCount++;
+            }
+        }
 
-    entryString += timestamp[1];
-    entryString += ", ";
-    entryString += vTotalSentCount;
-    entryString += ", ";
-    entryString += aTotalSentCount;
-    entryString += ", ";
-    entryString += vTotalRecvCount;
-    entryString += ", ";
-    entryString += aTotalRecvCount;
-    entryString += ", ,";
+        entryString += timestamp[1];
+        entryString += ", ";
+        entryString += vTotalSentCount;
+        entryString += ", ";
+        entryString += aTotalSentCount;
+        entryString += ", ";
+        entryString += vTotalRecvCount;
+        entryString += ", ";
+        entryString += aTotalRecvCount;
+        entryString += ", ,";
 
-    WriteLog(entryString);
+        WriteLog(entryString);
 
-    if(grainMap.size > 20000)
-    {
-        grainMap.clear();
+        if(grainMap.size > 20000)
+        {
+            grainMap.clear();
+        }
     }
 }
 
@@ -133,10 +142,18 @@ function GetGrainSequence(grain) {
     return grainMap.get(tsString);
 }
 
+function WriteTestBuffer(buffer, deviceId, channel)
+{
+  var filename = `test_aja_in_${deviceId}_${channel}.dat`;
+  output = fs.appendFile(filename, buffer, 'binary');
+}
+
 var logUtils = {
     LogCaptureGrain: LogCaptureGrain,
     LogPlaybackGrain: LogPlaybackGrain,
-    LogAnomaly: LogAnomaly
+    LogAnomaly: LogAnomaly,
+    EnableLogging: EnableLogging,
+    WriteTestBuffer: WriteTestBuffer
 };
 
 module.exports = logUtils;

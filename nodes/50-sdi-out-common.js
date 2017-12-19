@@ -39,13 +39,12 @@ function ensureInt(value) {
   }
 }
 
-//const fs = require('fs');
-//function TEST_write_buffer(buffer, deviceId, channel) {
-//  var filename = `c:\\users\\zztop\\music\\test_aja_out_${deviceId}_${channel}.dat`;
-//  output = fs.appendFile(filename, buffer, 'binary');
-//}
-
 module.exports = function (RED, sdiOutput, nodeName) {
+
+  // Extensive pipeline logging is disabled by default. Uncommenting the
+  // statement below outputs pipline statistics allowing grain movement
+  // to be tracked and measured for latency and smoothness
+  //logUtils.EnableLogging();
 
   function SDIOut (config) {
     RED.nodes.createNode(this, config);
@@ -309,7 +308,7 @@ module.exports = function (RED, sdiOutput, nodeName) {
             var usedBuffers = 0;
           
             if(audioGrain) {
-                //TEST_write_buffer(audioGrain.buffers[0], ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
+                //logUtils.WriteTestBuffer(audioGrain.buffers[0], ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
                 usedBuffers = playback.frame(videoGrain.buffers[0], audioGrain.buffers[0]);
             }
             else {

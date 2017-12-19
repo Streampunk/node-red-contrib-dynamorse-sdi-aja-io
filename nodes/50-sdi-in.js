@@ -26,12 +26,6 @@ function fixBMDCodes(code) {
   return ajatation.bmCodeToInt(code);
 }
 
-//const fs = require('fs');
-//function TEST_write_buffer(buffer, deviceId, channel) {
-//  var filename = `c:\\users\\zztop\\music\\test_aja_in_${deviceId}_${channel}.dat`;
-//  output = fs.appendFile(filename, buffer, 'binary');
-//}
-
 function ensureInt(value) {
   if(typeof value === 'number')
   {
@@ -44,6 +38,12 @@ function ensureInt(value) {
 }
 
 module.exports = function (RED) {
+
+  // Extensive pipeline logging is disabled by default. Uncommenting the
+  // statement below outputs pipline statistics allowing grain movement
+  // to be tracked and measured for latency and smoothness
+  //logUtils.EnableLogging();
+
   function SDIIn (config) {
     RED.nodes.createNode(this,config);
     redioactive.Funnel.call(this, config);
@@ -108,10 +108,8 @@ module.exports = function (RED) {
     console.log(`You wanted audio?`, ids);
 
     this.eventMuncher(capture, 'frame', (video, audio) => {
-      //node.log('Received Frame number: ' + ++frameCount);
-      //TEST_write_buffer(audio, ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
+      //logUtils.WriteTestBuffer(audio, ensureInt(config.deviceIndex), ensureInt(config.channelNumber));
 
-      //console.log('Event munching', video.length, audio ? audio.length : "no_audio");
       var grainTime = Buffer.allocUnsafe(10);
       grainTime.writeUIntBE(this.baseTime[0], 0, 6);
       grainTime.writeUInt32BE(this.baseTime[1], 6);
@@ -121,12 +119,12 @@ module.exports = function (RED) {
         this.baseTime[1] % 1000000000];
       var va = [ new Grain([video], grainTime, grainTime, null,
         ids.vFlowID, ids.vSourceID, grainDuration) ]; // TODO Timecode support
-      logUtils.LogCaptureGrain(va[0], true); // TEST
+      logUtils.LogCaptureGrain(va[0], true); // TEST - disabled by default
 
       if (config.audio === true && audio) { 
         va.push( new Grain([audio], grainTime, grainTime, null,
           ids.aFlowID, ids.aSourceID, grainDuration));
-        logUtils.LogCaptureGrain(va[1], false); // TEST
+        logUtils.LogCaptureGrain(va[1], false); // TEST - disabled by default
       } else if (config.audio === true) {
         console.warn('!! WARNING: Missing audio sample on input !!');
       }
